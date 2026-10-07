@@ -1,0 +1,9 @@
+fastapi==0.142.2
+uvicorn==0.54.0
+duckdb==1.5.6
+pandas==3.0.6
+pyyaml==6.0.3
+pytest==9.1.1
+httpx==0.28.1
+requests==2.34.2
+openpyxl==3.1.5  # optional: only needed for FAA xlsx validation downloads

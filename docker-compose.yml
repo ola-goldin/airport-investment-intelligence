@@ -1,0 +1,67 @@
+# Airport Investment Intelligence Agent — one command demo.
+#
+#   docker compose up                 # backend + frontend + Dify tool tunnel
+#   docker compose up --profile voice # adds the optional local Whisper STT service
+#
+# All services are optional except `backend`; the chat works without the UI
+# (POST /api/chat) and without voice (text input only). The `tunnel` service
+# is required for Dify Cloud tool calls (cloud servers cannot reach localhost).
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # Set to 1 to attempt authoritative BTS/OurAirports/FAA downloads;
+      # 0 keeps the fully offline, reproducible seed dataset.
+      AIRPORT_AGENT_BTS_DOWNLOAD: "${AIRPORT_AGENT_BTS_DOWNLOAD:-0}"
+    volumes:
+      # Persist the Parquet cache + any downloaded raw data.
+      - ./data:/srv/data
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /ui
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      # Dify iframe URL. Defaults to the shared Dify Cloud chatbot so the
+      # embedded chat works out of the box; override via a root .env or
+      # frontend/.env. Empty -> frontend falls back to the deterministic chat.
+      VITE_DIFY_CHATBOT_URL: "${VITE_DIFY_CHATBOT_URL:-https://udify.app/chatbot/UfdIIKocvyo9IdrW}"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/ui
+      - /ui/node_modules
+
+  # Public quick tunnel to the backend — required for Dify Cloud tool calls.
+  # The ephemeral https://....trycloudflare.com URL is printed in the logs:
+  #   docker compose logs tunnel
+  # scripts/setup_infra.ps1 syncs it into dify/openapi.yaml automatically;
+  # when it changes you must re-sync the tool in Dify (Integrations -> Tools)
+  # and republish the app. Verify with: python scripts/check_tunnel.py
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://backend:8000
+    depends_on:
+      - backend
+
+  # Voice is a BONUS feature, never a dependency (start with: --profile voice).
+  stt:
+    profiles: ["voice"]
+    build:
+      context: ./stt
+      dockerfile: Dockerfile
+    ports:
+      - "8100:8100"
+    environment:
+      STT_MODEL_SIZE: "${STT_MODEL_SIZE:-base}"
+      STT_DEVICE: "${STT_DEVICE:-cpu}"
+    volumes:
+      - stt_models:/root/.cache/huggingface
+
+volumes:
+  stt_models:

@@ -1,0 +1,49 @@
+[1/3] starting uvicorn on :8000 ...
+INFO:     127.0.0.1:65350 - "GET /api/health HTTP/1.1" 200 OK
+      API healthy: http://localhost:8000/api/health
+[2/3] starting cloudflared quick tunnel ...
+[3/3] public URL: https://flavor-titles-consoles-lone.trycloudflare.com
+      (written to C:\Users\User\source\deloitte-airport-gent\data\tunnel_url.txt)
+      Use this as servers[0].url in dify/openapi.yaml before importing into Dify Cloud.
+      Press Ctrl+C to stop both processes.
+INFO:     89.139.251.143:0 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "GET /api/airports/BOS/metrics HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "POST /api/airports/rank HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "GET /api/airports/ANC/long-haul HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "GET /api/airports/BOS/metrics HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "POST /api/airports/rank HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "GET /api/airports/ANC/long-haul HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "POST /api/airports/rank HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "GET /api/airports/BOS/metrics HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "GET /api/airports/MHT/metrics HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "GET /api/airports/BDL/metrics HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "POST /api/airports/rank HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "POST /api/airports/compare HTTP/1.1" 422 Unprocessable Content
+INFO:     3.229.89.252:0 - "GET /api/airports/BOS/metrics HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "GET /api/airports/BDL/metrics HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "GET /api/airports/PWM/metrics HTTP/1.1" 200 OK
+INFO:     89.139.251.143:0 - "GET /rank?region=New%20England HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53585 - "GET /rank?region=New%20England HTTP/1.1" 404 Not Found
+INFO:     89.139.251.143:0 - "POST /api/airports/rank HTTP/1.1" 422 Unprocessable Content
+INFO:     89.139.251.143:0 - "POST /api/airports/rank HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "GET /api/airports/_scoring-model HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "GET /api/airports/SFO/metrics HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "GET /api/airports/SFO/utilization HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "GET /api/airports/ANC/long-haul HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "POST /api/airports/rank HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "GET /api/airports/ANC/long-haul HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "POST /api/airports/rank HTTP/1.1" 200 OK
+INFO:     3.229.89.252:0 - "GET /api/airports/ANC/long-haul HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65115 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65115 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65144 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50965 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50965 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61189 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61189 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54522 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54522 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54539 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54524 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54525 - "GET /api/health HTTP/1.1" 200 OK

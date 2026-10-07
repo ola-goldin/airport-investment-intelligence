@@ -1,0 +1,109 @@
+openapi: 3.0.3
+info:
+  title: Airport Investment Intelligence API
+  description: >
+    Deterministic analytics tools for the Airport Investment Intelligence Agent.
+    Import this spec into Dify as a custom tool. All responses are computed
+    by deterministic code — the LLM must never invent numbers.
+  version: "1.0.0"
+servers:
+  - url: http://host.docker.internal:8000
+    description: >
+      URL for SELF-HOSTED Dify running in Docker on the same machine
+      (the analytics API runs on the host at :8000). Import THIS file into a
+      local Dify instance. For Dify Cloud use openapi.yaml (tunnel URL) —
+      cloud servers cannot reach host.docker.internal.
+paths:
+  /api/airports/{code}/metrics:
+    get:
+      operationId: getAirportMetrics
+      summary: Full observed metrics + deterministic Expansion Opportunity Score for one airport
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, example: BOS }
+      responses:
+        "200": { description: Metrics and score breakdown }
+        "404": { description: Unknown airport }
+  /api/airports/compare:
+    post:
+      operationId: compareAirports
+      summary: Compare two or more airports across observed KPIs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codes]
+              properties:
+                codes:
+                  type: array
+                  items: { type: string }
+                  example: [LAX, SNA]
+      responses:
+        "200": { description: Per-airport metrics + pairwise summary }
+  /api/airports/rank:
+    post:
+      operationId: rankAirports
+      summary: Rank airports in a region by the deterministic Expansion Opportunity Score
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [region]
+              properties:
+                region: { type: string, example: "New England" }
+                limit: { type: integer, default: 10 }
+      responses:
+        "200": { description: Ordered ranking with assumptions }
+  /api/airports/{code}/long-haul:
+    get:
+      operationId: getLongHaulShare
+      summary: Long-haul share of departing segments (nonstop >= 3000 miles)
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, example: ANC }
+      responses:
+        "200": { description: Share values + stated methodology }
+  /api/airports/{code}/utilization:
+    get:
+      operationId: getUtilization
+      summary: >
+        Observed utilization indicators (load factor, YoY change, passengers
+        per departure). Does NOT return an unmet-demand figure — public data
+        cannot measure it; say so explicitly when answering.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, example: SFO }
+      responses:
+        "200": { description: Utilization indicators + scoping note }
+  /api/airports/_scoring-model:
+    get:
+      operationId: getScoringModel
+      summary: Active scoring weights and normalization thresholds
+      responses:
+        "200": { description: Configuration (the LLM cannot modify it) }
+  /api/chat:
+    post:
+      operationId: fallbackChat
+      summary: Fallback deterministic chat (used if Dify is unavailable)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string }
+                session_id: { type: string, nullable: true }
+      responses:
+        "200": { description: Deterministic answer + intent }

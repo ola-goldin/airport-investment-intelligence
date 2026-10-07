@@ -1,0 +1,25 @@
+# Deterministic scoring configuration — Expansion Opportunity Score
+#
+# All weights and normalization thresholds are configuration-driven.
+# The LLM may explain this model; it may never modify or override it.
+# Every component below is an OBSERVED metric derived from BTS T-100 data.
+# No component claims to measure "capacity" or "unmet demand" directly.
+
+scoring_model:
+  version: "1.0"
+  analysis_window_years: 3          # growth CAGR window (trailing N years)
+  long_haul_threshold_miles: 3000   # long-haul = nonstop segment >= 3000 mi
+
+  weights:                          # must sum to 1.0 (validated at load time)
+    demand_growth: 0.30             # passenger CAGR over analysis window
+    load_factor: 0.25               # observed passengers / seats (latest year)
+    utilization_trend: 0.20         # observed year-over-year change in load factor
+    flight_growth: 0.15             # scheduled departure CAGR over analysis window
+    long_haul: 0.10                 # share of departures on segments >= threshold
+
+  normalization:                    # component raw value -> 0-100 sub-score
+    growth_pct_cap: 15.0            # growth CAGR of 15%/yr -> 100 pts (linear below cap)
+    load_factor_floor: 0.65         # LF <= 0.65 -> 0 pts
+    load_factor_ceiling: 0.90       # LF >= 0.90 -> 100 pts (linear between)
+    utilization_trend_range_points: 5.0   # +/- 5 LF points maps to 0-100 around 50
+    long_haul_share_cap: 0.30       # 30% long-haul share -> 100 pts (linear below cap)

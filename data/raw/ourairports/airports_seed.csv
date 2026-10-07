@@ -1,0 +1,30 @@
+iata_code,name,city,state,latitude_deg,longitude_deg
+ATL,Hartsfield-Jackson Atlanta International,Atlanta,GA,33.6,-84.4
+LAX,Los Angeles International,Los Angeles,CA,33.9,-118.4
+ORD,Chicago O'Hare International,Chicago,IL,42.0,-87.9
+DFW,Dallas/Fort Worth International,Dallas-Fort Worth,TX,32.9,-97.0
+DEN,Denver International,Denver,CO,39.9,-104.7
+JFK,John F. Kennedy International,New York,NY,40.6,-73.8
+SFO,San Francisco International,San Francisco,CA,37.6,-122.4
+SEA,Seattle-Tacoma International,Seattle,WA,47.5,-122.3
+LAS,Harry Reid International,Las Vegas,NV,36.1,-115.2
+CLT,Charlotte Douglas International,Charlotte,NC,35.2,-80.9
+PHX,Phoenix Sky Harbor International,Phoenix,AZ,33.4,-112.0
+MIA,Miami International,Miami,FL,25.8,-80.3
+IAH,George Bush Intercontinental,Houston,TX,30.0,-95.3
+EWR,Newark Liberty International,Newark,NJ,40.7,-74.2
+BOS,Edward Lawrence Logan International,Boston,MA,42.4,-71.0
+MSP,Minneapolis-St. Paul International,Minneapolis,MN,44.9,-93.2
+PHL,Philadelphia International,Philadelphia,PA,39.9,-75.2
+IAD,Washington Dulles International,Washington,DC,39.0,-77.5
+SAN,San Diego International,San Diego,CA,32.7,-117.2
+HNL,Daniel K. Inouye International,Honolulu,HI,21.3,-157.9
+ANC,Ted Stevens Anchorage International,Anchorage,AK,61.2,-150.0
+OAK,Oakland International,Oakland,CA,37.7,-122.2
+SJC,Norman Y. Mineta San Jose International,San Jose,CA,37.4,-121.9
+SNA,John Wayne Airport,Santa Ana,CA,33.7,-117.9
+BUR,Hollywood Burbank Airport,Burbank,CA,34.2,-118.4
+BDL,Bradley International,Hartford,CT,41.9,-72.7
+PVD,Rhode Island T. F. Green International,Providence,RI,41.7,-71.4
+MHT,Manchester-Boston Regional,Manchester,NH,42.9,-71.4
+PWM,Portland International Jetport,Portland,ME,43.6,-70.3
