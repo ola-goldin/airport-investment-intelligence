@@ -22,8 +22,8 @@ git clone https://github.com/ola-goldin/airport-investment-intelligence.git
 cd deloitte-airport-gent
 
 # 2. Create your local environment file (test-ready defaults included)
-#    Docker Compose reads `.env` automatically, but Docker can never create
-#    it — copy the template, or let scripts/setup_infra.ps1 do it for you.
+#    Copy `.env.example` in order to create .env. For test purpoces ONLY the Dify chat url https://udify.app/agent/GCccKODnmASobyAm is disclosed there
+#    or let scripts/setup_infra.ps1 do it for you.
 Copy-Item .env.example .env   # PowerShell
 # cp .env.example .env         # macOS/Linux
 
