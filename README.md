@@ -22,9 +22,8 @@ git clone https://github.com/ola-goldin/airport-investment-intelligence.git
 cd deloitte-airport-gent
 
 # 2. Create your local environment file (test-ready defaults included)
-#    .env is not a part of the .gitignore for the test purposec ONLY, 
-#    But if corrupted - copy `.env.example` in order to create .env. 
-#    Dify chat url https://udify.app/agent/GCccKODnmASobyAm is disclosed there as well,
+#    Copy `.env.example` in order to create .env. For test purpoces ONLY
+#    the Dify chat url https://udify.app/agent/GCccKODnmASobyAm is disclosed there
 #    or let scripts/setup_infra.ps1 do it for you.
 Copy-Item .env.example .env   # PowerShell
 # cp .env.example .env         # macOS/Linux
@@ -104,7 +103,10 @@ it from `.env.example` on first run and never overwrites an existing one.
 | Variable | Default | Purpose |
 |---|---|---|
 | `AIRPORT_AGENT_BTS_DOWNLOAD` | `0` | `1` attempts authoritative BTS/OurAirports/FAA downloads, else bundled seeds |
+<<<<<<< HEAD
 | `AIRPORT_AGENT_DATA_POLL_SECONDS` | `60` | Primitive polling: re-fetches the data source and refreshes the cache every N seconds (network-free at `BTS_DOWNLOAD=0`; set `0` to build once and never poll) |
+=======
+>>>>>>> f91f881fda33c6c89790755823dc2fbcb14f2982
 | `BTS_BASE_URL` | `https://www.transtats.bts.gov/DownLoad_Table.asp` | BTS T-100 download endpoint (see `backend/app/data/endpoints.py`) |
 | `BTS_T100_QUERY` | `?Table_ID=311&Year={year}&AllVars=1&Zype=csv` | BTS query template; `{year}` placeholder is filled per download year |
 | `FAA_ENPLANEMENTS_URL` | `…/passenger/media/cy23-all-enplanements.xlsx` | FAA validation workbook URL |
