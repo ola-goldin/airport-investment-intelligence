@@ -1,3 +1,130 @@
+# Installation & Setup Guide
+
+This guide covers the quickest ways to set up and run the Airport Investment Intelligence Agent.
+
+---
+
+## Prerequisites
+
+- **Docker Desktop** (version 4.25+, recommended for full-stack run)
+- **Python 3.13+** (if running locally without Docker)
+- **Node.js 18+** (if running the frontend locally without Docker)
+
+---
+
+## Option 1: One-Command Stack (Docker — Recommended)
+
+This starts the FastAPI backend (`:8000`), the React frontend (`:5173`), local Whisper speech-to-text (`:8100`), and the Cloudflare tunnel.
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/ola-goldin/airport-investment-intelligence.git
+cd deloitte-airport-gent
+
+# 2. Create your local environment file (test-ready defaults included)
+#    .env is not a part of the .gitignore for the test purposec ONLY, 
+#    But if corrupted - copy `.env.example` in order to create .env. 
+#    Dify chat url https://udify.app/agent/GCccKODnmASobyAm is disclosed there as well,
+#    or let scripts/setup_infra.ps1 do it for you.
+Copy-Item .env.example .env   # PowerShell
+# cp .env.example .env         # macOS/Linux
+
+# 3. Launch all services
+docker compose up
+```
+
+- **Web Console:** Open [http://localhost:5173](http://localhost:5173) in your browser.
+- **Backend API Docs:** Open [http://localhost:8000/docs](http://localhost:8000/docs).
+
+*(Windows shortcut: run `powershell -ExecutionPolicy Bypass -File scripts\setup_infra.ps1` to automatically handle Docker startup and tool URL syncing).*
+
+---
+
+## Option 2: Local Setup (Without Docker)
+
+### 1. Backend Service
+
+```bash
+# Set up Python virtual environment
+python -m venv venv
+
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Generate the offline calibrated dataset
+python scripts/make_seed_data.py
+
+# Launch FastAPI backend
+cd backend
+python -m uvicorn app.main:app --port 8000
+```
+
+### 2. Frontend Service
+
+Open a new terminal window:
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173).
+
+---
+
+## Option 3: Standalone CLI Agent (Zero Setup)
+
+If you only need to run the analytical ranking without running web servers or Docker, execute the standalone Python script (uses standard library only):
+
+```bash
+# Run analysis and export results to JSON
+python app.py
+
+# Interactive terminal walkthrough
+python demo.py
+```
+
+Results are saved to `airport_investment_results.json`.
+
+
+## Configuration via Environment Variables
+
+Every configurable value lives in `.env.example` (duplicated here for test
+setups — copy it to `.env` as-is and everything works with stock settings).
+Docker Compose reads `.env` automatically; `scripts/setup_infra.ps1` creates
+it from `.env.example` on first run and never overwrites an existing one.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `AIRPORT_AGENT_BTS_DOWNLOAD` | `0` | `1` attempts authoritative BTS/OurAirports/FAA downloads, else bundled seeds |
+| `AIRPORT_AGENT_DATA_POLL_SECONDS` | `60` | Primitive polling: re-fetches the data source and refreshes the cache every N seconds (network-free at `BTS_DOWNLOAD=0`; set `0` to build once and never poll) |
+| `BTS_BASE_URL` | `https://www.transtats.bts.gov/DownLoad_Table.asp` | BTS T-100 download endpoint (see `backend/app/data/endpoints.py`) |
+| `BTS_T100_QUERY` | `?Table_ID=311&Year={year}&AllVars=1&Zype=csv` | BTS query template; `{year}` placeholder is filled per download year |
+| `FAA_ENPLANEMENTS_URL` | `…/passenger/media/cy23-all-enplanements.xlsx` | FAA validation workbook URL |
+| `OURAIRPORTS_URL` | `…/ourairports-data/airports.csv` | OurAirports full CSV URL |
+| `VITE_DIFY_CHATBOT_URL` | shared Dify chatbot | React iframe chat; empty → deterministic fallback chat |
+| `VITE_API_BASE` | `http://localhost:8000` | Backend URL for the UI |
+| `STT_MODEL_SIZE` / `STT_DEVICE` | `base` / `cpu` | Local Whisper model size and device |
+
+No secrets exist in this repo: there is nothing to rotate, and no API keys
+are hardcoded anywhere. Dify provider keys live in the Dify workspace UI,
+never in git.
+
+---
+
+## Troubleshooting
+
+- **Port in use (`8000`, `5173`, `8100`):** Stop the conflicting local process or update the port mapping in `docker-compose.yml`.
+- **Windows Encoding Error:** If terminal characters look distorted, run `set PYTHONIOENCODING=utf-8` before running scripts.
+- **Microphone access:** Speech-to-text requires accessing the app over `http://localhost` or `https` and allowing browser microphone permissions.
+
 # Architecture & Technical Design Document
 
 **Project:** Airport Investment Intelligence Agent  
@@ -28,6 +155,24 @@ To eliminate numerical hallucinations and maintain strict auditability, the syst
 │  • Zero LLM numerical calculations                                     │
 └────────────────────────────────────────────────────────────────────────┘
 ```
+## Data-source endpoints (env-configurable)
+
+The download endpoints for the three public sources live in
+`backend/app/data/endpoints.py` and are overridable via environment variables
+(no code change needed to point at a mirror or an updated endpoint):
+
+| Source | Env variable | Default |
+|---|---|---|
+| BTS T-100 base URL | `BTS_BASE_URL` | `https://www.transtats.bts.gov/DownLoad_Table.asp` |
+| BTS T-100 query template (`{year}` placeholder kept) | `BTS_T100_QUERY` | `?Table_ID=311&Year={year}&AllVars=1&Zype=csv` |
+| FAA enplanements workbook | `FAA_ENPLANEMENTS_URL` | `https://www.faa.gov/airports/planning_capacity/passenger_allcargo_stats/passenger/media/cy23-all-enplanements.xlsx` |
+| OurAirports full CSV | `OURAIRPORTS_URL` | `https://davidmegginson.github.io/ourairports-data/airports.csv` |
+
+All four defaults are also duplicated in `.env.example` so test setups can
+copy that file to `.env` as-is. The URLs only affect *which remote files*
+are fetched when `AIRPORT_AGENT_BTS_DOWNLOAD=1`; the analytics schema and
+the scoring model are unchanged by them. With the default `0`, no network
+is touched and the git-committed seed datasets are used.
 
 ### Layer Details
 
@@ -35,6 +180,7 @@ To eliminate numerical hallucinations and maintain strict auditability, the syst
    - Owns 100% of the numbers, formulas, and ranking logic.
    - All KPIs are calculated by unit-tested Python routines. The LLM never performs arithmetic or assigns raw scores.
    - Manages data ingestion from authoritative sources and bundled offline caches.
+   - **Offline-ready with live polling:** it starts immediately from the bundled git-committed seed dump (no network needed), so the demo always works. A background poller (`AIRPORT_AGENT_DATA_POLL_SECONDS`, default `60`s) periodically re-fetches the data source and atomically refreshes the in-memory cache — using updated data as soon as an authoritative source is reachable. With `AIRPORT_AGENT_BTS_DOWNLOAD=0` (default) each poll is network-free and just re-materializes the seed; set it to `1` to poll the live BTS/OurAirports/FAA sources. A failed poll is logged and skipped (never crashes the API); set the interval to `0` to build once and never poll. Poller state is visible at `GET /api/health` → `data_poller`.
 
 2. **AI Orchestration Layer (`Dify Cloud` with Fallback):**
    - The primary interface is hosted on Dify Cloud (`udify.app`), which interprets analyst questions, selects the appropriate tool, and formats qualitative explanations.

@@ -6,6 +6,7 @@ explains. All numbers come from the deterministic analytics modules here.
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,9 +14,25 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.api import airports, chat
+from app.data import poller
 from app.runtime import system_status
 
 logger = logging.getLogger("app")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Start the background data poller; stop it on shutdown.
+
+    Primitive polling is controlled by ``AIRPORT_AGENT_DATA_POLL_SECONDS``: the
+    shipped ``.env`` enables it (60s); unset defaults to 0 (off), keeping the
+    startup path deterministic and network-free unless polling is requested.
+    """
+    poller.start_poller()
+    try:
+        yield
+    finally:
+        poller.stop_poller()
+
 
 app = FastAPI(
     title="Airport Investment Intelligence Agent",
@@ -24,6 +41,7 @@ app = FastAPI(
         "AI explains and orchestrates; deterministic code owns the methodology."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

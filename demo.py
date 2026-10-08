@@ -13,8 +13,9 @@ import json
 
 # Windows legacy console code pages (e.g. cp1252) cannot encode emoji and
 # box-drawing characters; force UTF-8 output so the demo never crashes.
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+stdout = getattr(sys.stdout, "reconfigure", None)
+if stdout is not None:
+    stdout(encoding="utf-8", errors="replace")
 
 def main():
     """Run the Airport Investment Intelligence Agent demo."""

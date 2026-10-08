@@ -4,7 +4,7 @@ Dify is the primary chat interface per the implementation instructions. This
 deployment uses **Dify Cloud only** (workspace at `udify.app`) — there is no
 local Dify install and no local model server. The published
 chatbot is embedded by the frontend (`frontend/.env` →
-`VITE_DIFY_CHATBOT_URL=https://udify.app/chatbot/<TOKEN>`); if it is ever
+`VITE_DIFY_CHATBOT_URL=https://udify.app/agent/GCccKODnmASobyAm`); if it is ever
 unreachable, the frontend falls back to the deterministic chat
 (`POST /api/chat`).
 
@@ -119,7 +119,7 @@ Reasoning-only models (e.g. deepseek-r1) are NOT suitable agent models —
 pick a tool-calling chat model.
 
 5. App → Publish → Embed in site → copy the `<iframe src>` URL
-   (`https://udify.app/chatbot/<TOKEN>`) into `frontend/.env` as
+   (`https://udify.app/agent/GCccKODnmASobyAm`) into `frontend/.env` as
    `VITE_DIFY_CHATBOT_URL`, then `docker compose restart frontend`.
 
 > **Instructions disappearing after reopening the app:** prompt edits are

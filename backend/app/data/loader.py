@@ -119,3 +119,22 @@ def get_repository() -> AirportDataRepository:
         if _repo is None:
             _repo = AirportDataRepository()
         return _repo
+
+
+def refresh_repository() -> AirportDataRepository:
+    """Rebuild the repository from the data source and atomically swap it in.
+
+    The new instance is built OFF the lock (the build can download + compile
+    DuckDB), then swapped under ``_repo_lock`` so any concurrent request sees
+    either the fully-built old repository or the fully-built new one — never a
+    half-built table. The previous connection is intentionally not
+    force-closed: an in-flight request may still be querying it, so it is left
+    to the garbage collector (CPython closes the DuckDB connection on dealloc
+    once the last reference drops). Used by the optional background poller
+    (see ``app.data.poller``).
+    """
+    global _repo
+    new_repo = AirportDataRepository()
+    with _repo_lock:
+        _repo = new_repo
+    return new_repo

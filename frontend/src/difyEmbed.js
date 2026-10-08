@@ -2,7 +2,7 @@
  * Dify chatbot embed helpers — iframe embed variant.
  *
  * The embed snippet from Dify (app -> Publish -> Embed in site) is an iframe:
- *   <iframe src="https://udify.app/chatbot/<ID>" ... allow="microphone;..."></iframe>
+ *   <iframe src="https://udify.app/agent/GCccKODnmASobyAm" ... allow="microphone;..."></iframe>
  * The URL belongs to the hosted Dify Cloud workspace (see dify/README.md).
  *
  * Availability check: we cannot inspect the cross-origin iframe, so we probe

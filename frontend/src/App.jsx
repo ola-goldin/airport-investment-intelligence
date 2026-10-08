@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./styles.css";
 import { API_BASE, DIFY_CHATBOT_URL, checkDify } from "./difyEmbed.js";
 import FallbackChat from "./FallbackChat.jsx";
+
+// How often the UI re-checks the backend health / poller status. Kept short so
+// a background data refresh is reflected in the UI promptly without hammering it.
+const HEALTH_POLL_MS = 5000;
 
 /**
  * Airport Investment Intelligence client.
@@ -48,13 +52,35 @@ export default function App() {
   const [difyOk, setDifyOk] = useState(null);
   const [apiOk, setApiOk] = useState(null);
   const [backend, setBackend] = useState(null);
+  // Timestamp of the most recent background data refresh, plus a transient
+  // flag used to flash the "data updated" badge when the poller completes a cycle.
+  const [dataUpdatedAt, setDataUpdatedAt] = useState(null);
+  const [justUpdated, setJustUpdated] = useState(false);
+  const lastCyclesRef = useRef(null);
+
+  const formatTime = (iso) => {
+    try {
+      return new Date(iso).toLocaleTimeString();
+    } catch {
+      return iso;
+    }
+  };
 
   const checkBackend = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/health`);
       if (!res.ok) throw new Error();
-      setBackend(await res.json());
+      const data = await res.json();
+      setBackend(data);
       setApiOk(true);
+      // Detect a background refresh: the poller increments its cycle count on
+      // every completed refresh, so a rise means fresh data was swapped in.
+      const cycles = data?.data_poller?.cycles ?? 0;
+      if (lastCyclesRef.current !== null && cycles > lastCyclesRef.current) {
+        setDataUpdatedAt(data?.data_poller?.last_refresh_at || new Date().toISOString());
+        setJustUpdated(true);
+      }
+      lastCyclesRef.current = cycles;
     } catch {
       setApiOk(false);
     }
@@ -67,10 +93,24 @@ export default function App() {
     setMode(ok ? "dify" : "fallback");
   }, []);
 
+  // Poll backend health / poller status on an interval (and once immediately) so
+  // background data refreshes are reflected live; Dify is checked only once.
   useEffect(() => {
     checkBackend();
+    const id = setInterval(checkBackend, HEALTH_POLL_MS);
+    return () => clearInterval(id);
+  }, [checkBackend]);
+
+  useEffect(() => {
     tryDify();
-  }, [checkBackend, tryDify]);
+  }, [tryDify]);
+
+  // Clear the transient "just updated" highlight a few seconds after it fires.
+  useEffect(() => {
+    if (!justUpdated) return;
+    const id = setTimeout(() => setJustUpdated(false), 4000);
+    return () => clearTimeout(id);
+  }, [justUpdated]);
 
   return (
     <div className="app">
@@ -79,7 +119,8 @@ export default function App() {
           <h1>Airport Investment Intelligence Agent</h1>
           <p className="sub">
             Dify-orchestrated LLM over a deterministic FastAPI + DuckDB analytics
-            layer — offline-ready, served from the git-committed seed dump.
+            layer — offline-ready from a bundled seed dump, and polls for updated
+            source data when available.
           </p>
         </div>
         <div className="backend-status">
@@ -99,6 +140,15 @@ export default function App() {
                   {" "}· seed: local git dump
                 </span>
               )}
+              {backend.data_poller?.enabled && backend.data_poller?.running && (
+                <span
+                  className="poll-live"
+                  title={`Background poller refreshes the data cache every ${backend.data_poller.interval_seconds}s`}
+                >
+                  <span className="poll-dot" /> live · {backend.data_poller.interval_seconds}s
+                  {backend.data_poller.cycles > 0 ? ` · ${backend.data_poller.cycles}×` : ""}
+                </span>
+              )}
             </>
           ) : (
             <>
@@ -107,6 +157,16 @@ export default function App() {
           )}
         </div>
       </header>
+
+      {dataUpdatedAt && (
+        <div
+          className={`data-updated${justUpdated ? " flash" : ""}`}
+          role="status"
+          aria-live="polite"
+        >
+          <span className="du-check">✓</span> Data refreshed · {formatTime(dataUpdatedAt)}
+        </div>
+      )}
 
       <StatusBanner
         mode={mode}
@@ -125,7 +185,7 @@ export default function App() {
         <div className="dify-frame">
           <iframe
             src={DIFY_CHATBOT_URL}
-            style={{ width: "100%", height: "100%", minHeight: 700 }}
+            style={{ width: "100%", height: "100%" }}
             frameBorder="0"
             allow="microphone;clipboard-write"
             title="Dify Airport Investment Intelligence Agent"

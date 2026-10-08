@@ -13,6 +13,7 @@ from app.analytics.scoring import load_scoring_model
 from app.data import bts as bts_mod
 from app.data.faa import validation_summary
 from app.data.loader import AirportDataRepository, get_repository
+from app.data import poller as poller_mod
 
 
 @lru_cache(maxsize=1)
@@ -42,4 +43,5 @@ def system_status() -> dict:
         "airports_tracked": len(repo.codes()),
         "scoring_model_version": model.version,
         "faa_validation": validation_summary(),
+        "data_poller": poller_mod.poller_status(),
     }

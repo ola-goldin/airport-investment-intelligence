@@ -102,7 +102,7 @@ Check "Dify embed URL configured (chatbot for the iframe)" "BONUS" {
         }
     }
     if (-not $script:embedUrl) {
-        $script:embedUrl = "https://udify.app/chatbot/UfdIIKocvyo9IdrW"
+        $script:embedUrl = "https://udify.app/agent/GCccKODnmASobyAm"
         Write-Host "        no value in .env files - docker compose default applies" -ForegroundColor DarkGray
     }
     Assert ($script:embedUrl -match "^https?://") "does not look like a URL: $($script:embedUrl)"
