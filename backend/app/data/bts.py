@@ -17,6 +17,8 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+from app.data import endpoints
+
 logger = logging.getLogger(__name__)
 
 # Network access is opt-in so offline demos remain deterministic and fast.
@@ -27,12 +29,52 @@ ROOT = Path(__file__).resolve().parents[3]
 RAW_DIR = ROOT / "data" / "raw"
 SEED_CSV = RAW_DIR / "bts_t100_seed.csv"
 BTS_DIR = RAW_DIR / "bts"
+# Name of the env var holding the BTS endpoint (surfaced in provenance so the
+# UI can say exactly which URL was tried before falling back).
+BTS_SOURCE_LABEL = "BTS_BASE_URL + BTS_T100_QUERY"
 
-# T-100 Domestic + International market table (pre-filled download URL).
-T100_URL = (
-    "https://www.transtats.bts.gov/DownLoad_Table.asp"
-    "?Table_ID=311&Year={year}&AllVars=1&Zype=csv"
-)
+# T-100 Domestic + International market table. Base endpoint and query
+# template are env-configurable (see app.data.endpoints); the query keeps a
+# {year} placeholder so mirrors can be swapped in without touching code.
+def t100_url(year: int) -> str:
+    return endpoints.BTS_BASE_URL + endpoints.BTS_T100_QUERY.format(year=year)
+
+
+def traffic_fallback_chain() -> list[dict]:
+    """Describe the ordered fallback chain for traffic data.
+
+    Each entry: {"source": <path-or-url>, "available": bool, "note": str}.
+    """
+    wanted = sorted({int(p.stem.split("_")[-1]) for p in BTS_DIR.glob("t100_market_*.csv")} or {2019, 2020, 2021, 2022, 2023})
+    cached = [str(BTS_DIR / f"t100_market_{y}.csv") for y in wanted]
+    cached_ok = all(Path(p).exists() for p in cached)
+    chain = [
+        {
+            "source": t100_url(wanted[0]) if wanted else endpoints.BTS_BASE_URL + endpoints.BTS_T100_QUERY,
+            "available": DOWNLOAD_ENABLED and cached_ok,
+            "note": (
+                "Authoritative BTS T-100 download (attempted only when "
+                "AIRPORT_AGENT_BTS_DOWNLOAD=1). Points at BTS_BASE_URL + "
+                "BTS_T100_QUERY from app.data.endpoints; change the env vars "
+                "to use a mirror — no code change needed."
+            ),
+        },
+        {
+            "source": "; ".join(cached),
+            "available": cached_ok,
+            "note": "Local cached DuckDB input (data/raw/bts/); reused verbatim when downloads are off or fail.",
+        },
+        {
+            "source": str(SEED_CSV),
+            "available": SEED_CSV.exists(),
+            "note": (
+                "Bundled calibrated seed dump, committed to git "
+                "(data/raw/bts_t100_seed.csv). Always available offline; "
+                "responses are labeled seed_calibrated."
+            ),
+        },
+    ]
+    return chain
 
 SEED_COLUMNS = [
     "year",
@@ -52,7 +94,7 @@ def download_t100_year(year: int, timeout: float = 20.0) -> Path | None:
     if dest.exists():
         return dest
     try:
-        resp = requests.get(T100_URL.format(year=year), timeout=timeout, headers={"User-Agent": "airport-investment-agent/1.0"})
+        resp = requests.get(t100_url(year), timeout=timeout, headers={"User-Agent": "airport-investment-agent/1.0"})
         resp.raise_for_status()
         BTS_DIR.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(resp.content)
@@ -67,9 +109,15 @@ def download_t100_year(year: int, timeout: float = 20.0) -> Path | None:
 def load_traffic_data(years: list[int] | None = None) -> tuple[pd.DataFrame, str]:
     """Return (traffic dataframe, data_source label).
 
-    Attempts authoritative BTS downloads first, then falls back to the
-    bundled seed CSV. The returned label is one of:
-      'bts_t100_download' or 'seed_calibrated'.
+    Fallback order (see traffic_fallback_chain()):
+      1. authoritative BTS downloads (only when AIRPORT_AGENT_BTS_DOWNLOAD=1),
+         cached under data/raw/bts/;
+      2. previously cached data/raw/bts/*.csv reused as the DuckDB input;
+      3. bundled seed dump committed to git (data/raw/bts_t100_seed.csv).
+
+    The returned label is 'bts_t100_download' or 'seed_calibrated'. Raises
+    FileNotFoundError with the full chain if NO source is available — but
+    level 3 is part of the repo, so normal installs always resolve locally.
     """
     frames: list[pd.DataFrame] = []
     downloaded = 0
@@ -82,6 +130,19 @@ def load_traffic_data(years: list[int] | None = None) -> tuple[pd.DataFrame, str
                 downloaded += 1
         if downloaded == len(wanted) and downloaded > 0:
             return pd.concat(frames, ignore_index=True), "bts_t100_download"
+        if downloaded:
+            logger.warning(
+                "BTS download incomplete (%d/%d years from %s) — continuing "
+                "to local fallback levels instead of mixing partial downloads.",
+                downloaded, len(wanted), endpoints.BTS_BASE_URL,
+            )
 
+    seed_missing = not SEED_CSV.exists()
+    if seed_missing:
+        chain = traffic_fallback_chain()
+        raise FileNotFoundError(
+            "No traffic data available. Fallback chain exhausted: "
+            + " | ".join(f"[{ 'ok' if s['available'] else 'MISSING'}] {s['source']} ({s['note']})" for s in chain)
+        )
     seed = pd.read_csv(SEED_CSV)
     return seed[SEED_COLUMNS], "seed_calibrated"

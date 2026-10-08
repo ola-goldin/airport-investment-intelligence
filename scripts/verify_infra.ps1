@@ -80,10 +80,17 @@ Check "Dify tool tunnel: public URL answers /api/health" "CORE" {
     Write-Host ("        {0}" -f $script:tunnelUrl) -ForegroundColor DarkGray
 } "docker compose up -d (starts the 'tunnel'); if its URL is stale/dead run: docker compose restart tunnel; logs: docker compose logs tunnel; full repair: scripts\setup_infra.ps1"
 
-Check "Local Whisper STT :8100 (bonus, never required)" "BONUS" {
+Check "Local Whisper STT :8100 (mic button for the fallback chat)" "BONUS" {
     $r = Invoke-WebRequest "http://localhost:8100/health" -TimeoutSec 10 -UseBasicParsing
     Assert ($r.StatusCode -eq 200) "HTTP $($r.StatusCode)"
-} "Optional: docker compose --profile voice up -d."
+    $h = $r.Content | ConvertFrom-Json
+    Assert ($h.import_ok -eq $true) "faster-whisper not installed in the STT service"
+    if ($h.model_loaded) {
+        Write-Host ("        engine={0} model={1} (loaded, ready)" -f $h.engine, $h.model) -ForegroundColor DarkGray
+    } else {
+        Write-Host ("        engine={0} model={1} (downloads on first mic use)" -f $h.engine, $h.model) -ForegroundColor DarkGray
+    }
+} "docker compose up -d (stt starts with the stack); smaller model: STT_MODEL_SIZE=tiny docker compose up -d --build stt"
 
 # --- Dify embed configuration ------------------------------------------------
 Check "Dify embed URL configured (chatbot for the iframe)" "BONUS" {

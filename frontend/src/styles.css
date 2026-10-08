@@ -187,6 +187,15 @@ body {
 }
 .composer button:disabled { opacity: 0.5; cursor: default; }
 
+/* Voice input: the button is always rendered; "live" pulses while recording.
+ * The hint line below the composer reports exactly what happened. */
+.composer .mic { background: var(--panel); color: var(--ink); border: 1px solid var(--border); white-space: nowrap; }
+.composer .mic:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.composer .mic-live { border-color: var(--bad); color: var(--bad); animation: micpulse 1.2s ease-in-out infinite; }
+@keyframes micpulse { 50% { opacity: 0.55; } }
+.michint { padding: 0 16px 12px; font-size: 0.82rem; color: var(--muted); }
+.michint-dim { opacity: 0.75; }
+
 .checking { color: var(--muted); padding: 24px 4px; }
 
 .dify-frame {

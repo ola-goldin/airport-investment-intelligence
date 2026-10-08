@@ -1,7 +1,6 @@
 # Airport Investment Intelligence Agent — one command demo.
 #
-#   docker compose up                 # backend + frontend + Dify tool tunnel
-#   docker compose up --profile voice # adds the optional local Whisper STT service
+#   docker compose up   # backend + frontend + Dify tool tunnel + local Whisper STT
 #
 # All services are optional except `backend`; the chat works without the UI
 # (POST /api/chat) and without voice (text input only). The `tunnel` service
@@ -17,6 +16,13 @@ services:
       # Set to 1 to attempt authoritative BTS/OurAirports/FAA downloads;
       # 0 keeps the fully offline, reproducible seed dataset.
       AIRPORT_AGENT_BTS_DOWNLOAD: "${AIRPORT_AGENT_BTS_DOWNLOAD:-0}"
+      # Source endpoints (see backend/app/data/endpoints.py + .env.example).
+      # Defaults below match the in-code defaults, so the service behaves the
+      # same with or without a local .env file.
+      BTS_BASE_URL: "${BTS_BASE_URL:-https://www.transtats.bts.gov/DownLoad_Table.asp}"
+      BTS_T100_QUERY: "${BTS_T100_QUERY:-?Table_ID=311&Year={year}&AllVars=1&Zype=csv}"
+      FAA_ENPLANEMENTS_URL: "${FAA_ENPLANEMENTS_URL:-https://www.faa.gov/airports/planning_capacity/passenger_allcargo_stats/passenger/media/cy23-all-enplanements.xlsx}"
+      OURAIRPORTS_URL: "${OURAIRPORTS_URL:-https://davidmegginson.github.io/ourairports-data/airports.csv}"
     volumes:
       # Persist the Parquet cache + any downloaded raw data.
       - ./data:/srv/data
@@ -30,6 +36,9 @@ services:
       # embedded chat works out of the box; override via a root .env or
       # frontend/.env. Empty -> frontend falls back to the deterministic chat.
       VITE_DIFY_CHATBOT_URL: "${VITE_DIFY_CHATBOT_URL:-https://udify.app/chatbot/UfdIIKocvyo9IdrW}"
+      # Local voice service for the fallback chat's mic button (browser calls
+      # :8100 directly; same-host default works via the published port).
+      VITE_STT_URL: "${VITE_STT_URL:-http://localhost:8100}"
     ports:
       - "5173:5173"
     volumes:
@@ -49,9 +58,11 @@ services:
     depends_on:
       - backend
 
-  # Voice is a BONUS feature, never a dependency (start with: --profile voice).
+  # Local Whisper STT for the fallback chat's mic button (default-on).
+  # Starts with the stack; no secrets, no cloud. If the model can't load
+  # (hardware limits), the service stays up and POST /transcribe returns
+  # 503 — the mic button explains it and typed chat keeps working.
   stt:
-    profiles: ["voice"]
     build:
       context: ./stt
       dockerfile: Dockerfile

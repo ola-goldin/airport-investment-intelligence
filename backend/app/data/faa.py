@@ -15,6 +15,8 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+from app.data import endpoints
+
 logger = logging.getLogger(__name__)
 
 # Network access is opt-in (see bts.py note).
@@ -23,10 +25,8 @@ DOWNLOAD_ENABLED = os.getenv("AIRPORT_AGENT_BTS_DOWNLOAD", "0") == "1"
 ROOT = Path(__file__).resolve().parents[3]
 SEED_CSV = ROOT / "data" / "raw" / "bts_t100_seed.csv"
 
-FAA_ENPLANEMENTS_URL = (
-    "https://www.faa.gov/airports/planning_capacity/"
-    "passenger_allcargo_stats/passenger/media/cy23-all-enplanements.xlsx"
-)
+# FAA enplanements workbook (see app.data.endpoints; env-overridable).
+FAA_ENPLANEMENTS_URL = endpoints.FAA_ENPLANEMENTS_URL
 
 
 def fetch_faa_enplanements(timeout: float = 20.0) -> pd.DataFrame | None:

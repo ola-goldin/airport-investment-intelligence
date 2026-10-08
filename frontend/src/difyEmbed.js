@@ -15,6 +15,9 @@
 export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 export const DIFY_CHATBOT_URL = import.meta.env.VITE_DIFY_CHATBOT_URL || "";
 export const DIFY_TIMEOUT_MS = Number(import.meta.env.VITE_DIFY_TIMEOUT_MS || 8000);
+export const STT_BASE = import.meta.env.VITE_STT_URL || "http://localhost:8100";
+// Local Whisper service for the fallback chat's mic button. :8100 works on
+// Windows/macOS via the published Docker port (or a bare-metal uvicorn).
 
 /** Resolve true when the Dify chatbot URL responds, false on network error/timeout. */
 export function checkDify() {

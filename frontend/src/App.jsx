@@ -29,7 +29,8 @@ function StatusBanner({ mode, difyOk, apiOk, onRetry, onForceFallback, onForceDi
       : "Dify embed did not load in time";
   return (
     <div className="banner banner-fallback">
-      <strong>Fallback chat (deterministic API)</strong> — {reason}.
+      <strong>Fallback chat (deterministic API)</strong> — {reason}.{" "}
+      Serving local git-seeded data from the FastAPI + DuckDB layer.
       {apiOk === false && (
         <span className="banner-warn"> Backend at {API_BASE} is also unreachable.</span>
       )}
@@ -77,7 +78,8 @@ export default function App() {
         <div>
           <h1>Airport Investment Intelligence Agent</h1>
           <p className="sub">
-            Dify-orchestrated LLM over a deterministic FastAPI + DuckDB analytics layer.
+            Dify-orchestrated LLM over a deterministic FastAPI + DuckDB analytics
+            layer — offline-ready, served from the git-committed seed dump.
           </p>
         </div>
         <div className="backend-status">
@@ -87,6 +89,16 @@ export default function App() {
               {backend.years?.length
                 ? ` · ${backend.years[0]}–${backend.years[backend.years.length - 1]}`
                 : ""}
+              {backend.endpoint_tried && (
+                <span title={`Fetched from ${backend.endpoint_tried}`}>
+                  {" "}· src: {backend.endpoint_tried}
+                </span>
+              )}
+              {!backend.endpoint_tried && (
+                <span title="Offline seed dump committed to git; swap sources via env (see .env.example) without code changes">
+                  {" "}· seed: local git dump
+                </span>
+              )}
             </>
           ) : (
             <>

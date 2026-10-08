@@ -65,10 +65,30 @@ the FastAPI service to a public host and point `servers[0].url` at it
 (stable URL, no re-sync needed).
 
 Without a reachable URL the demo still works: the frontend's built-in
-deterministic chat (`POST /api/chat`) answers the same four question types
-with live numbers; inside the Dify chatbot, failed tool calls make the
+deterministic chat (`POST /api/chat`) answers the same five question types
+(incl. "How does the scoring work?") with live numbers; inside the Dify
 agent answer with its guardrail message ("I could not retrieve that from
 the analytics API").
+
+### Tunnel died? (tool calls fail or return 500)
+
+Quick-tunnel URLs are ephemeral — Cloudflare revokes them when idle while the
+container keeps retrying a dead registration (`Unauthorized: Tunnel not
+found` in `docker compose logs tunnel`, and the URL in
+`data/tunnel_url.txt` no longer resolves). Dify tools then fail and the agent
+replies "I could not retrieve that from the analytics API".
+
+1. `docker compose restart tunnel`, then read the fresh URL:
+   `docker compose logs tunnel` → `https://....trycloudflare.com`
+2. Sync it into `data/tunnel_url.txt` and `dify/openapi.yaml` (`servers[0].url`).
+3. Verify through the public URL: `python scripts/check_tunnel.py`
+   (expect `TUNNEL CHECK OK`).
+4. In Dify: *Integrations → Tools → Swagger API* → paste the updated
+   `openapi.yaml`, save, **republish the app**, then re-ask the question.
+
+The local backend is unaffected: `http://localhost:8000/api/health` keeps
+answering from the git-committed seed dataset, and the web UI automatically
+switches to the deterministic fallback chat.
 
 ## 3. Create the Agent app
 
@@ -140,7 +160,7 @@ pick a tool-calling chat model.
 - The workspace owner configures ONE free provider key (see "Recommended
   free model" above). No paid keys are required.
 - If Dify is unavailable at any point, `POST /api/chat` on the local service
-  provides a deterministic fallback agent (same four question types).
+  provides a deterministic fallback agent (same five question types).
 
 ## 6. Files
 

@@ -7,7 +7,7 @@
   Brings a fresh machine from "git clone" to a running demo:
     1. Verifies (or starts) the Docker engine.
     2. Starts the demo stack: backend :8000 + frontend :5173 + public
-       Dify tool tunnel (+ local Whisper STT :8100 unless -SkipVoice).
+       Dify tool tunnel + local Whisper STT :8100 (-SkipVoice leaves STT out).
     3. Waits for the tunnel to answer /api/health on its public URL and
        syncs dify/openapi.yaml to that URL.
     4. Runs scripts/verify_infra.ps1 and prints the full service summary
@@ -24,6 +24,19 @@ param(
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "tunnel.ps1")
+
+# ---------------------------------------------------------------- .env file ---
+# Docker Compose automatically reads `.env` from the repo root, but Docker can
+# never CREATE it. Bootstrap it from `.env.example` on first run so every
+# variable is documented and editable in one place. Existing `.env` files are
+# never overwritten. For quick tests, `.env.example` duplicates all defaults
+# and can be copied as-is: `Copy-Item .env.example .env`.
+$envTemplate = Join-Path $RepoRoot ".env.example"
+$envFile = Join-Path $RepoRoot ".env"
+if (-not (Test-Path $envFile) -and (Test-Path $envTemplate)) {
+    Copy-Item $envTemplate $envFile
+    Write-Host ".env created from .env.example (stock test values; customise as needed)."
+}
 
 function Step([int]$n, [string]$msg) {
     Write-Host "`n=== [$n/4] $msg ===" -ForegroundColor Cyan
@@ -54,9 +67,10 @@ Write-Host "Docker engine OK."
 Step 2 "Demo stack (backend + frontend + tunnel$(if (-not $SkipVoice) { ' + STT voice' }))"
 Push-Location $RepoRoot
 try {
-    $composeArgs = @("compose")
-    if (-not $SkipVoice) { $composeArgs += @("--profile", "voice") }
-    $composeArgs += @("up", "-d", "--build")
+    # All compose services start by default; -SkipVoice starts everything
+    # except stt (typed chat never needs it).
+    $composeArgs = @("compose", "up", "-d", "--build")
+    if ($SkipVoice) { $composeArgs += @("backend", "frontend", "tunnel") }
     & docker @composeArgs
     if ($LASTEXITCODE -ne 0) { throw "docker compose up failed (exit $LASTEXITCODE)." }
 } finally { Pop-Location }
@@ -121,12 +135,12 @@ foreach ($envFile in @((Join-Path $RepoRoot ".env"), (Join-Path $RepoRoot "front
         if ($m.Success -and $m.Groups[1].Value) { $chatbotUrl = $m.Groups[1].Value; break }
     }
 }
-if (-not $chatbotUrl) { $chatbotUrl = "https://udify.app/chatbot/UfdIIKocvyo9IdrW (compose default)" }
+if (-not $chatbotUrl) { $chatbotUrl = "https://udify.app  (compose default)" }
 
 Write-Host "`n=== Services ===" -ForegroundColor Cyan
 Write-Host ("  Analytics API      http://localhost:8000/api/health")
 Write-Host ("  Web UI             http://localhost:5173")
-if (-not $SkipVoice) { Write-Host ("  Voice STT          http://localhost:8100  (skip: -SkipVoice)") }
+if (-not $SkipVoice) { Write-Host ("  Voice STT          http://localhost:8100  (included by default; -SkipVoice leaves it out)") }
 Write-Host ("  Dify tool tunnel   $tunnelUrl")
 Write-Host ("  Dify chatbot       $chatbotUrl")
 Write-Host "`n=== Dify workspace expectations (configure once, browser) ===" -ForegroundColor Cyan

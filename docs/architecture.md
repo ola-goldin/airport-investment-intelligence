@@ -46,14 +46,35 @@ Dify  (Phase 1 chat orchestrator)
 - The KPI vocabulary avoids scientifically unobservable claims
   (`utilization_trend`, never "unmet demand" as a measured figure).
 
+## Data-source endpoints (env-configurable)
+
+The download endpoints for the three public sources live in
+`backend/app/data/endpoints.py` and are overridable via environment variables
+(no code change needed to point at a mirror or an updated endpoint):
+
+| Source | Env variable | Default |
+|---|---|---|
+| BTS T-100 base URL | `BTS_BASE_URL` | `https://www.transtats.bts.gov/DownLoad_Table.asp` |
+| BTS T-100 query template (`{year}` placeholder kept) | `BTS_T100_QUERY` | `?Table_ID=311&Year={year}&AllVars=1&Zype=csv` |
+| FAA enplanements workbook | `FAA_ENPLANEMENTS_URL` | `https://www.faa.gov/airports/planning_capacity/passenger_allcargo_stats/passenger/media/cy23-all-enplanements.xlsx` |
+| OurAirports full CSV | `OURAIRPORTS_URL` | `https://davidmegginson.github.io/ourairports-data/airports.csv` |
+
+All four defaults are also duplicated in `.env.example` so test setups can
+copy that file to `.env` as-is. The URLs only affect *which remote files*
+are fetched when `AIRPORT_AGENT_BTS_DOWNLOAD=1`; the analytics schema and
+the scoring model are unchanged by them. With the default `0`, no network
+is touched and the git-committed seed datasets are used.
+
 ## Testing
 
 - `tests/test_scoring.py` — weights, normalization boundaries, midpoint
   values, renormalization, invalid-config rejection.
 - `tests/test_metrics.py` — CAGR, window logic, utilization delta,
   long-haul share math, region filtering, ranking order.
-- `tests/test_api.py` — HTTP contracts via TestClient, including the four
+- `tests/test_api.py` — HTTP contracts via TestClient, including the five
   required chat question types and follow-up context handling.
+- `tests/test_offline.py` — full-stack offline guarantee: network blocked,
+  all key endpoints still serve from the git-committed seeds.
 
 Run: `cd backend && python -m pytest tests -q`
 

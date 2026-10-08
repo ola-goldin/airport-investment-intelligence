@@ -5,12 +5,17 @@ explains. All numbers come from the deterministic analytics modules here.
 """
 from __future__ import annotations
 
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.api import airports, chat
 from app.runtime import system_status
+
+logger = logging.getLogger("app")
 
 app = FastAPI(
     title="Airport Investment Intelligence Agent",
@@ -29,6 +34,26 @@ app.add_middleware(
 )
 
 app.include_router(airports.router, prefix="/api")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Return a structured body instead of an opaque 500.
+
+    The Dify agent surfaces `detail` verbatim to the user, so any unexpected
+    failure must still be self-explanatory (and logged server-side).
+    """
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": (
+                f"Internal analytics error ({type(exc).__name__}) while serving "
+                f"{request.url.path}. The backend logs have the traceback; "
+                "seed data itself is bundled in git."
+            )
+        },
+    )
 
 
 class ChatRequest(BaseModel):

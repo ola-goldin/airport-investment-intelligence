@@ -46,7 +46,10 @@ def rank(payload: dict):
     region = payload.get("region")
     if not region:
         raise HTTPException(status_code=422, detail='Provide {"region": "..."} (e.g. "New England").')
-    limit = int(payload.get("limit", 10))
+    try:
+        limit = int(payload.get("limit", 10))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail='"limit" must be an integer.')
     repo, model = get_runtime()
     result = analytics.rank_airports(repo, model, str(region), limit=limit)
     if "error" in result:

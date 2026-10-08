@@ -7,10 +7,10 @@ Architecture (per plan §15):
 - Fully local: faster-whisper runs on-device; NO cloud STT API, NO API keys.
 - Isolated from the core analytics backend: the demo works with text input
   alone if this service is not running or cannot load a model.
-- Start it explicitly (it is never auto-started):
+- Starts with the stack by default (`docker compose up`); on Windows opt
+  out with `setup_infra.ps1 -SkipVoice`. Bare-metal alternative:
     pip install -r stt/requirements.txt
     python -m uvicorn main:app --port 8100   (from inside stt/)
-  or: docker compose --profile voice up
 
 Hardware expectations (documented, not hidden):
   tiny  ~ 1 GB RAM, real-time on most CPUs
@@ -26,6 +26,7 @@ import os
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 try:  # guarded import: the service reports degraded status instead of crashing
     from faster_whisper import WhisperModel  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
@@ -42,6 +43,14 @@ DEVICE = os.getenv("STT_DEVICE", "cpu")
 COMPUTE_TYPE = "int8" if DEVICE == "cpu" else "float16"
 
 app = FastAPI(title="Airport Agent STT (local Whisper)", version="1.0.0")
+# Same permissive CORS as the analytics backend: the browser (Vite dev on
+# :5173 or any static host) calls :8100 cross-origin. Tighten for production.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # demo scope; tighten for production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 _model: Any | None = None
 
 

@@ -7,11 +7,11 @@ info:
     by deterministic code  the LLM must never invent numbers.
   version: "1.0.0"
 servers:
-  - url: https://priorities-dir-herbs-pets.trycloudflare.com
+  - url: https://justice-instructional-volume-bufing.trycloudflare.com
     description: >
       Current public tunnel to the local FastAPI service (quick tunnel, one
       instance of scripts/serve_dify.py or an equivalent `cloudflared tunnel
-      --url http://localhost:8000`). NOTE: quick-tunnel URLs are ephemeral Ã¢â‚¬â€
+      --url http://localhost:8000`). NOTE: quick-tunnel URLs are ephemeral -
       when the tunnel restarts it gets a NEW url; update this file and
       re-paste/re-sync the tool in Dify (Integrations -> Tools -> Swagger
       API), then republish the app.
@@ -78,7 +78,7 @@ paths:
       operationId: getUtilization
       summary: >
         Observed utilization indicators (load factor, YoY change, passengers
-        per departure). Does NOT return an unmet-demand figure Ã¢â‚¬â€ public data
+        per departure). Does NOT return an unmet-demand figure - public data
         cannot measure it; say so explicitly when answering.
       parameters:
         - name: code

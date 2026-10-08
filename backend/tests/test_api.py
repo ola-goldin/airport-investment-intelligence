@@ -135,3 +135,31 @@ def test_chat_followup_uses_context():
     assert body["intent"] in ("metrics", "help")
     if body["intent"] == "metrics":
         assert body["payload"]["airport"]
+
+
+def test_chat_scoring_model():
+    """The 5th suggestion chip must be answered, not fall through to help."""
+    r = client().post("/api/chat", json={"message": "How does the scoring work?"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["intent"] == "scoring_model"
+    assert "I can answer" not in body["answer"]  # not the help text
+    assert "config/scoring.yaml" in body["answer"]
+    assert "Passenger demand growth" in body["answer"]
+    assert "0-100" in body["answer"]
+    assert body["assumptions"]
+
+
+def test_chat_score_question_still_routes_to_metrics():
+    """'What is X's score?' stays a metrics question, not scoring-methodology."""
+    r = client().post("/api/chat", json={"message": "What is the expansion opportunity score of BOS?"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["intent"] == "metrics"
+    assert body["payload"]["airport"] == "BOS"
+
+
+def test_chat_ranked_followup_not_caught_by_scoring_intent():
+    r = client().post("/api/chat", json={"message": "Why is BOS ranked first?"})
+    assert r.status_code == 200
+    assert r.json()["intent"] == "rank"

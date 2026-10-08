@@ -14,6 +14,8 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+from app.data import endpoints
+
 logger = logging.getLogger(__name__)
 
 # Network access is opt-in (see bts.py note).
@@ -23,7 +25,8 @@ ROOT = Path(__file__).resolve().parents[3]
 RAW_DIR = ROOT / "data" / "raw" / "ourairports"
 SEED_CSV = RAW_DIR / "airports_seed.csv"
 FULL_CSV = RAW_DIR / "airports.csv"
-OURAIRPORTS_URL = "https://davidmegginson.github.io/ourairports-data/airports.csv"
+# OurAirports full CSV (see app.data.endpoints; env-overridable).
+OURAIRPORTS_URL = endpoints.OURAIRPORTS_URL
 
 NEW_ENGLAND_STATES = {"CT", "ME", "MA", "NH", "RI", "VT"}
 CALIFORNIA_STATES = {"CA"}

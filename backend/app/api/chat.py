@@ -1,7 +1,8 @@
 """Fallback conversational agent (used when Dify is unavailable).
 
-Deterministic intent routing — no LLM required. Supports the four required
-question types plus follow-up context (e.g. "what about SFO?" after a
+Deterministic intent routing — no LLM required. Supports the five question
+types (ranking, comparison, long-haul share, utilization/unmet demand, and
+scoring methodology) plus follow-up context (e.g. "what about SFO?" after a
 New England ranking keeps the ranking context).
 
 Dify remains the primary orchestrator; this fallback exists to show the
@@ -13,6 +14,7 @@ import re
 import uuid
 
 from app.analytics import metrics as analytics
+from app.analytics.scoring import COMPONENT_LABELS
 from app.analytics.utilization import UNMET_DEMAND_NOTE
 from app.data.metadata import REGION_ALIASES, region_to_states
 from app.runtime import get_runtime
@@ -54,6 +56,17 @@ def _extract_region(text: str) -> str | None:
 
 def _detect_intent(text: str) -> str:
     low = text.lower()
+    # Scoring-methodology questions must be checked before the generic
+    # airport-question fallback ("How does the scoring work?" would otherwise
+    # fall through to the help text because "scoring" != "score").
+    if re.search(
+        r"how does the scor|how (?:is|are) (?:the |this |a )?scor"
+        r"|scoring (?:work|system|formula|model|method)"
+        r"|score (?:work|calculat|is computed|is determined)"
+        r"|how (?:is|are) .*score|weights?\b|methodolog",
+        low,
+    ):
+        return "scoring_model"
     if re.search(r"\blong[- ]?haul\b", low):
         return "long_haul"
     if re.search(r"\bcompare\b|\bvs\.?\b|\bversus\b", low):
@@ -186,6 +199,39 @@ def _handle_metrics(text: str, repo, model, session: dict) -> dict:
     return {"intent": "metrics", "answer": answer, "payload": result, "assumptions": result["assumptions"]}
 
 
+def _handle_scoring(model, session: dict) -> dict:
+    """Explain the deterministic scoring model (same source as
+    GET /api/airports/_scoring-model — config/scoring.yaml)."""
+    n = model.normalization
+    lines = [
+        f"Expansion Opportunity Score (model v{model.version}): deterministic "
+        "composite on a 0-100 scale, computed by code — the LLM cannot change "
+        "it. Weights come from config/scoring.yaml and sum to 1.0:",
+    ]
+    for key, w in sorted(model.weights.items(), key=lambda kv: -kv[1]):
+        lines.append(f"- {COMPONENT_LABELS[key]}: {w * 100:.0f}%")
+    lines.append(
+        f"Normalization: growth capped at {n['growth_pct_cap']:.0f}%/yr; load "
+        f"factor {n['load_factor_floor']:.2f}-{n['load_factor_ceiling']:.2f} maps "
+        f"to 0-100; utilization trend +/-"
+        f"{n['utilization_trend_range_points']:.1f} LF points spans 0-100; "
+        f"long-haul share capped at {n['long_haul_share_cap']:.0%} "
+        f"(long-haul = nonstop >= {model.long_haul_threshold_miles} mi)."
+    )
+    lines.append(
+        f"Analysis window: {model.window_years} years. Missing components "
+        "renormalize the weights over available components and are reported "
+        "explicitly, never silently."
+    )
+    return {
+        "intent": "scoring_model",
+        "answer": "\n".join(lines),
+        "assumptions": [
+            "Weights are configuration-driven (config/scoring.yaml); the LLM cannot modify them.",
+        ],
+    }
+
+
 def _help_text() -> str:
     return (
         "I can answer (deterministic analytics, clearly scoped):\n"
@@ -193,6 +239,7 @@ def _help_text() -> str:
         "- 'Compare LAX and SNA congestion levels'\n"
         "- 'What percentage of long haul flights out of ANC?'\n"
         "- 'What is the unmet flight demand in SFO and why?'\n"
+        "- 'How does the scoring work?'\n"
         "Follow-ups work: 'Why is BOS ranked first?', 'What about SFO?'"
     )
 
@@ -207,6 +254,8 @@ def respond(message: str, session_id: str | None = None) -> dict:
         out = _handle_rank(message, repo, model, session)
     elif intent == "compare":
         out = _handle_compare(message, repo, model, session)
+    elif intent == "scoring_model":
+        out = _handle_scoring(model, session)
     elif intent == "long_haul":
         out = _handle_long_haul(message, repo, session)
     elif intent in ("unmet_demand", "utilization"):

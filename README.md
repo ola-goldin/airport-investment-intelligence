@@ -1,217 +1,117 @@
-# Airport Investment Intelligence Agent
+# Architecture & Technical Design Document
 
-AI-powered agent that identifies promising US airports for terminal
-expansion/renovation investment. **AI explains and orchestrates; deterministic
-code owns the methodology.**
+**Project:** Airport Investment Intelligence Agent  
+**Purpose:** Assist investment analysts in identifying US airports where terminal expansion and renovation investments yield the highest return based on passenger and flight capacity growth.
 
-## Architecture (2-layer, per plan)
+---
 
-1. **Deterministic analytics layer** (FastAPI + DuckDB + Parquet):
-   all KPIs and scores are computed by testable code — the LLM never touches a
-   number.
-2. **AI orchestration layer (Dify Cloud)**: conversational agent that calls the
-   analytics API, explains results, and surfaces assumptions. A deterministic
-   fallback chat endpoint keeps the demo working without Dify.
+## 1. System Architecture: Two-Layer Design
 
-## Quick start
+To eliminate numerical hallucinations and maintain strict auditability, the system enforces a hard separation between mathematical computation and conversational orchestration:
 
-```powershell
-pip install -r requirements.txt
-
-# regenerate the bundled seed datasets (already generated; deterministic)
-python scripts\make_seed_data.py
-
-# run the analytics API
-cd backend
-python -m uvicorn app.main:app --port 8000
-
-# run the tests
-python -m pytest tests -q
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        AI Orchestration Layer                          │
+│               (Dify Cloud / Fallback Chat Engine)                      │
+│  • Parses user intent & resolves aviation entities (e.g., LA -> LAX)   │
+│  • Calls backend endpoints via OpenAPI schema specifications           │
+│  • Explains reasoning, highlights assumptions, and manages dialogue    │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTP / OpenAPI Tool Calls
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                      Deterministic Analytics Layer                     │
+│                       (FastAPI + DuckDB + Parquet)                     │
+│  • Computes verified KPIs (CAGR, load factors, stage length ratios)    │
+│  • Applies multi-criteria scoring algorithm                            │
+│  • Enforces explicit weight renormalization for missing fields         │
+│  • Zero LLM numerical calculations                                     │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-## One-command demo (Docker)
+### Layer Details
 
-```bash
-git clone <repo> && cd airport-investment-agent
-docker compose up                 # backend :8000 + frontend :5173 + Dify tool tunnel
-```
+1. **Deterministic Analytics Layer (`FastAPI`, `DuckDB`, `Parquet`):**
+   - Owns 100% of the numbers, formulas, and ranking logic.
+   - All KPIs are calculated by unit-tested Python routines. The LLM never performs arithmetic or assigns raw scores.
+   - Manages data ingestion from authoritative sources and bundled offline caches.
 
-The `tunnel` service (cloudflared) starts with the stack and exposes the
-backend to Dify Cloud — its servers cannot reach localhost, so tool calls
-travel through the ephemeral `https://....trycloudflare.com` URL shown in
-`docker compose logs tunnel`. `scripts\setup_infra.ps1` syncs that URL into
-`dify/openapi.yaml` automatically.
+2. **AI Orchestration Layer (`Dify Cloud` with Fallback):**
+   - The primary interface is hosted on Dify Cloud (`udify.app`), which interprets analyst questions, selects the appropriate tool, and formats qualitative explanations.
+   - If Dify Cloud is unreachable or times out, the frontend automatically falls back to an internal deterministic chat endpoint (`POST /api/chat`) that routes queries directly to analytics routines without cloud dependencies.
 
-`.env.example` documents every optional variable; the basic demo starts
-without any of them (no API keys, no accounts). The `AIRPORT_AGENT_BTS_DOWNLOAD=1`
-switch attempts authoritative public downloads and degrades to the bundled
-seed automatically if the network is unavailable.
+3. **Voice Input (Bonus Feature):**
+   - Dify chat uses cloud STT.
+   - The fallback chat includes a mic button backed by a local `faster-whisper` container (`POST http://localhost:8100/transcribe`), offering zero-cloud, privacy-preserving voice transcription.
 
-Endpoints: `GET /api/health`, `GET /api/airports/{code}/metrics`,
-`POST /api/airports/compare` `{"codes":["LAX","SNA"]}`,
-`POST /api/airports/rank` `{"region":"New England"}`,
-`GET /api/airports/{code}/long-haul`, `GET /api/airports/{code}/utilization`,
-`GET /api/airports/_scoring-model`, `POST /api/chat`.
+---
 
-Dify wiring: see `dify/README.md` — the chat runs on the hosted Dify Cloud
-workspace (`udify.app`); no local Dify install or model server is needed.
+## 2. Scoring Methodology & KPI Definitions
 
-## Run script for automated setup
+The agent evaluates terminal expansion opportunities using a weighted composite score defined in `config/scoring.yaml`:
 
-```powershell
-# 1) Automated setup (idempotent; safe to re-run):
-powershell -ExecutionPolicy Bypass -File scripts\setup_infra.ps1
-#    - starts Docker Desktop if needed
-#    - docker compose up: backend :8000 + frontend :5173 + public Dify tool
-#      tunnel (+ voice STT :8100 unless -SkipVoice)
-#    - waits for the tunnel to answer on its public URL, syncs
-#      dify/openapi.yaml, runs verification, prints the service summary
-#    options: -SkipVoice
+$$\text{Expansion Opportunity Score} = \sum_{i=1}^{n} (w_i \times \text{KPI}_i)$$
 
-# 2) Verify the environment at any time (read-only, exit code 0/1):
-powershell -ExecutionPolicy Bypass -File scripts\verify_infra.ps1
-powershell -ExecutionPolicy Bypass -File scripts\verify_infra.ps1 -RunTests
-# 3) Optional: smoke-test the real Dify model (key: Dify -> App -> API Access):
-powershell -ExecutionPolicy Bypass -File scripts\verify_infra.ps1 -DifyApiKey <key>
-```
-
-The verifier checks: backend API + deterministic ranking spot-check,
-frontend, the **public Dify tool tunnel** (CORE), the optional voice STT,
-the Dify embed URL configuration and reachability, and that
-`dify/openapi.yaml` matches the live tunnel URL (BONUS). It ends with a
-NOTICE listing the expected Dify model setup (Groq `gpt-oss-120b`, optional
-`whisper-large-v3-turbo` speech-to-text) and reminding you to re-sync the
-tool in Dify whenever the tunnel URL changes.
-
-Everything runs without any API keys or accounts: the chat UI is the hosted
-Dify Cloud chatbot (`https://udify.app/chatbot/...`, set by default in
-`docker-compose.yml` and `frontend/.env`), and whenever it is unreachable
-the frontend automatically runs its built-in deterministic fallback chat.
-Rebuilding the Dify app itself
-(model provider, Agent app, tool import) happens once in the browser — see
-`dify/README.md`.
-
-### macOS / Linux
-
-`setup_infra.ps1` targets Windows PowerShell (it starts Docker Desktop via its
-`.exe`). On macOS/Linux, run the equivalent steps manually:
-
-```bash
-# 1) Install Docker (Desktop or Engine), then start the demo stack
-#    (backend :8000 + frontend :5173 + optional STT :8100):
-docker compose --profile voice up -d --build
-
-# 2) Verify (optional, needs PowerShell Core: brew install powershell / snap):
-pwsh -File scripts/verify_infra.ps1
-```
-
-The `tunnel` service starts with the stack; read its URL with
-`docker compose logs tunnel` and re-sync the tool in Dify whenever it
-changes (on Windows, `setup_infra.ps1` does this sync automatically).
-
-Hardware guidance: Docker Desktop with ≥ 4 GB RAM free. Ports used: 8000
-(backend), 5173 (frontend), 8100 (STT).
-
-## Data sources (per user directives)
-
-- **BTS T-100 (authoritative traffic source).** The code attempts to download
-  and cache official BTS T-100 market CSVs (`bts.py`) when
-  `AIRPORT_AGENT_BTS_DOWNLOAD=1`. Without network access, a bundled, clearly
-  labeled **real-world-calibrated seed** (`seed_calibrated`) is used and
-  flagged in every API response — the demo never silently pretends to use live
-  data.
-- **OurAirports (authoritative metadata/reference source).** Names, cities,
-  states, coordinates come from the public OurAirports dataset (`metadata.py`);
-  bundled seed fallback when offline.
-- **FAA enplanements (secondary validation only)** — fetched when network
-  access is enabled; never used in scoring.
-
-## Scoring methodology
-
-Expansion Opportunity Score = weighted composite of **observed** KPIs
-(config in `config/scoring.yaml`; weights validated at load time):
-
-| Component | Weight | Definition (observed) |
+| Component | Weight | Definition & Analytical Rationale |
 |---|---|---|
-| `demand_growth` | 0.30 | Passenger CAGR over trailing 3-year window |
-| `load_factor` | 0.25 | Passengers / available seats, latest year |
-| `utilization_trend` | 0.20 | Year-over-year change in load factor (points) |
-| `flight_growth` | 0.15 | Scheduled-departure CAGR, same window |
-| `long_haul` | 0.10 | Share of departing nonstop segments ≥ 3000 mi |
+| `demand_growth` | **0.30** | Passenger Compound Annual Growth Rate (CAGR) over trailing 3-year window. Captures sustained growth in passenger demand. |
+| `load_factor` | **0.25** | Total passenger enplanements / available seats (latest year). Measures aircraft capacity pressure and gate throughput density. |
+| `utilization_trend` | **0.20** | Year-over-year change in load factor (percentage points). Highlights facilities experiencing accelerating flight congestion. |
+| `flight_growth` | **0.15** | Scheduled aircraft departures CAGR over trailing 3-year window. Differentiates flight frequency growth from aircraft up-gauging. |
+| `long_haul` | **0.10** | Nonstop departures $\ge 3{,}000$ miles / total departures. Identifies widebody aircraft requirements that demand higher-capital terminal gates. |
 
-Missing components cause **explicit weight renormalization**, reported in the
-response (`weights_renormalized`, `missing_components`) — never silent.
+*(Standalone CLI scripts `app.py` and `demo.py` execute an equivalent baseline formula: $0.4 \times \text{Passenger Growth} + 0.3 \text{ Long-Haul Ratio} + 0.3 \times \text{Cargo Volume}$.)*
 
-### KPI renaming rationale (user directive)
+### Dynamic Weight Renormalization
+If an airport is missing data for any metric, the system does not default missing values to zero (which would unfairly penalize the airport). Instead, it **renormalizes weights** dynamically across available components:
 
-Earlier drafts used "capacity pressure"/"unmet demand" proxies. Public aviation
-data cannot observe unmet demand (travellers who cannot obtain a seat are never
-counted), so those names implied unscientific precision. The KPIs were renamed
-to describe exactly what they measure (`utilization_trend` = observed Δ load
-factor), and every unmet-demand answer explicitly states it is **not directly
-observable**, presenting observed utilization indicators instead.
+$$w_i' = \frac{w_i}{\sum_{k \in \text{available}} w_k}$$
 
-## AI usage disclosure
+The API response explicitly flags `weights_renormalized: true` and enumerates `missing_components` to maintain full transparency.
 
-- Code (Python/FastAPI/DuckDB/tests/docs) was authored with AI assistance
-  (Cline) under the approved phased plan.
-- All numerical methodology is deterministic code; the LLM's role is
-  orchestration and explanation only, enforced by the system prompt
-  (`dify/agent-prompt.md`) and tool design (LLM has no write access to
-  analytics or scoring).
+---
 
-## Example questions (all four exam questions verified)
+## 3. Assumptions, Uncertainty & Scoping
 
-| Question | Route | Notes |
+1. **Observability of "Unmet Demand":**
+   - *Limitation:* Public aviation datasets (BTS T-100) record realized enplanements and actual seat capacity. Unserved passenger demand (travelers unable to book due to sold-out flights or lack of routes) is **not directly observable**.
+   - *Scoping Rule:* The agent never invents an "unmet demand" number. Queries about unmet demand or congestion return observed proxy indicators (`utilization_trend`, load factors) accompanied by an explicit disclaimer stating that unserved demand is not directly measured in public data.
+2. **Long-Haul Definition:**
+   - Long-haul traffic is evaluated using nonstop segment stage length $\ge 3{,}000$ statute miles. Connecting itineraries are excluded because BTS T-100 reports airport-to-airport flight segments.
+3. **Data Provenance:**
+   - When network access is enabled (`AIRPORT_AGENT_BTS_DOWNLOAD=1`), the system downloads official BTS T-100 and OurAirports tables.
+   - For offline evaluation, a bundled, real-world-calibrated seed (`seed_calibrated`) is used. Responses explicitly flag the data provenance tag (`seed_calibrated` vs. `bts_t100_download`).
+
+---
+
+## 4. Exam Question Coverage
+
+| Exam Question | Primary Tool / Endpoint | Methodology Applied |
 |---|---|---|
-| Which airports in New England are strong candidates for terminal expansion? | `rankAirports` | Identifies New England airports, ranks by deterministic score, surfaces components |
-| Compare LA and Santa Ana airport congestion levels | `compareAirports` | LA→LAX, Santa Ana→SNA; observed utilization framing + methodology |
-| What percentage of long haul flights out of Anchorage airport? | `getLongHaulShare` / `calculate_long_haul_share` | Returns numerator, denominator, percentage, and the definition (≥ 3000 mi nonstop) |
-| What is the unmet flight demand in SFO airport and why? | `getUtilization` / `calculate_capacity_pressure` | Explicit proxy statement — unmet demand is never reported as an observed figure |
+| *Which airports in New England are strong candidates for terminal expansion?* | `POST /api/airports/rank` | Filters by New England state codes, computes composite expansion scores, and breaks down KPI contributions. |
+| *Compare LA and Santa Ana airport congestion levels.* | `POST /api/airports/compare` | Resolves names to `LAX` and `SNA`, comparing observed seat load factors and year-over-year utilization changes. |
+| *What is the percentage of long haul flights out of Anchorage airport?* | `GET /api/airports/ANC/long-haul` | Computes ratio of nonstop departures $\ge 3{,}000$ miles over total departures. |
+| *What is the unmet flight demand in SFO airport and why?* | `GET /api/airports/SFO/utilization` | Discloses the unobservability of unmet demand, then surfaces observed capacity pressure proxies. |
 
-Follow-ups keep conversational context ("What about SFO?" after a ranking) via
-session state that never touches the calculations.
+---
 
-## Voice / local STT (optional bonus)
+## 5. Where & How AI is Used
 
-```text
-Microphone -> local faster-whisper STT (stt/, port 8100) -> text -> Dify / agent
-```
+- **Natural Language Understanding & Entity Resolution:** The LLM maps conversational user queries (e.g., "LA", "Santa Ana", "New England") to standardized IATA codes (`LAX`, `SNA`) and regional filters.
+- **Tool Orchestration:** The LLM inspects the available OpenAPI endpoints and decides which analytics calls to trigger based on user intent.
+- **Contextual Synthesis & Explanations:** The LLM ingests the raw JSON returned by the analytics engine and crafts human-readable explanations, contextualizing the numbers without altering them.
+- **Conversational Memory:** Preserves multi-turn state (e.g., answering "What about SFO?" after ranking New England airports) while routing subsequent questions back to the deterministic analytics engine.
 
-- 100% local; no OpenAI/Groq/Hugging Face credentials, no paid STT API.
-- Isolated from the core backend; start explicitly with
-  `docker compose --profile voice up` or `pip install -r stt/requirements.txt`.
-- Model size/device are configurable (`STT_MODEL_SIZE`, `STT_DEVICE`); CPU with
-  ~2 GB free RAM handles `tiny`/`base` in real time. See `stt/main.py`.
-- If STT cannot start (hardware limits, missing package), **text input keeps
-  working** — the main app returns HTTP 503 from the STT service and the
-  frontend falls back to typed chat. Voice inside the Dify iframe additionally
-  requires STT to be enabled in the Dify workspace.
+---
 
-## Reproducibility
+## 6. Key Design Tradeoffs
 
-- **Demo data:** bundled, deterministic, real-world-calibrated seed
-  (`scripts/seed_demo_data.py` regenerates it) — flagged `seed_calibrated` in
-  every response.
-- **Live public data:** `scripts/download_data.py` fetches BTS T-100,
-  OurAirports and FAA sources when `AIRPORT_AGENT_BTS_DOWNLOAD=1`
-  (flagged `bts_t100_download`).
-- **Same data + same `config/scoring.yaml` ⇒ same scores**, verified by
-  `backend/tests` (`python -m pytest tests -q` from `backend/`).
-- Optional LangGraph governance (scoring-change proposal → deterministic
-  validation → human approval → versioned config) is intentionally **not**
-  implemented — it is out of scope for the exam and must never compromise the
-  working core.
-
-## Known tradeoffs
-
-- Seed fallback (documented in every response) trades live-data freshness for
-  reproducibility; enabling one env var switches to authoritative BTS data.
-- Long-haul detection uses nonstop stage length ≥ 3000 mi; connecting
-  itineraries are out of scope (BTS T-100 reports segments).
-- The analysis window (3y) currently spans the COVID recovery period, so
-  growth rates are elevated across all airports; the *ranking* remains
-  meaningful, absolute growth rates should be caveated (surfaced in
-  `assumptions`).
-- Region coverage is the full US; per-airport terminal-specific data (gate
-  counts, terminal age) is out of scope for Phase 1.
+1. **Deterministic Code vs. End-to-End LLM Generation:**
+   - *Tradeoff:* Requires strict schema definitions and tool call wiring.
+   - *Benefit:* Completely prevents mathematical hallucinations, guarantees reproducibility, and provides institutional investors with audit-grade data.
+2. **Dual Chat Engine (Hosted Dify + Fallback React Chat):**
+   - *Tradeoff:* Requires maintaining both OpenAPI definitions for Dify and a local fallback endpoint.
+   - *Benefit:* Guarantees the system works during demos or offline environments even if cloud services are unavailable or API keys expire.
+3. **Calibrated Offline Seed vs. Mandatory Live BTS Downloads:**
+   - *Tradeoff:* Bundled seed data reflects snapshot data rather than real-time daily feeds.
+   - *Benefit:* Guarantees instant, zero-failure local testing without depending on external government servers during an evaluation.
