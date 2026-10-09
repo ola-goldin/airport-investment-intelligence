@@ -7,7 +7,7 @@ info:
     by deterministic code  the LLM must never invent numbers.
   version: "1.0.0"
 servers:
-  - url: https://justice-instructional-volume-bufing.trycloudflare.com
+  - url: https://robinson-sunny-auburn-glossary.trycloudflare.com
     description: >
       Current public tunnel to the local FastAPI service (quick tunnel, one
       instance of scripts/serve_dify.py or an equivalent `cloudflared tunnel
